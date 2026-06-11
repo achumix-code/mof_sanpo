@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ゆったり深海さんぽ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell" aria-label="ゆったり深海さんぽ">
+    <canvas id="game" width="390" height="720"></canvas>
+
+    <section class="hud" aria-live="polite">
+      <div>
+        <span class="hud-label">深度</span>
+        <strong id="depth">0m</strong>
+      </div>
+      <div>
+        <span class="hud-label">最高</span>
+        <strong id="bestDepth">0m</strong>
+      </div>
+      <div>
+        <span class="hud-label">真珠 今回</span>
+        <strong id="runPearls">0</strong>
+      </div>
+      <div>
+        <span class="hud-label">真珠 通算</span>
+        <strong id="totalPearls">0</strong>
+      </div>
+      <button id="homeButton" type="button" aria-label="タイトルに戻る">⌂</button>
+      <button id="pauseButton" type="button" aria-label="一時停止">II</button>
+    </section>
+
+    <section id="startScreen" class="overlay">
+      <h1>ゆったり<br>深海さんぽ</h1>
+      <p>泡のモフを左右に流して、横長クラゲでぽよん。大クラゲの真珠も集めよう。</p>
+      <div class="mofu-picker" aria-label="モフを選ぶ">
+        <p>どちらのモフであそぶ？</p>
+        <div class="mofu-options">
+          <button class="mofu-option selected" id="grayMofuButton" type="button" data-mofu="gray" aria-pressed="true">
+            <img src="../image/mof‗gray.png" alt="">
+            <span>グレー</span>
+          </button>
+          <button class="mofu-option" id="beigeMofuButton" type="button" data-mofu="beige" aria-pressed="false">
+            <img src="../image/mof_beige.png" alt="">
+            <span>beige</span>
+          </button>
+        </div>
+      </div>
+      <button id="startButton" type="button">さんぽを始める</button>
+      <button id="encyclopediaButton" type="button">図鑑</button>
+    </section>
+
+    <section id="encyclopediaScreen" class="overlay hidden">
+      <h2>深海ずかん</h2>
+      <div class="book-tabs" role="tablist" aria-label="深度">
+        <button class="book-tab selected" type="button" data-tab="shallow" aria-pressed="true">0〜300m</button>
+        <button class="book-tab" type="button" data-tab="middle" aria-pressed="false">301〜500m</button>
+        <button class="book-tab" type="button" data-tab="deep" aria-pressed="false">501〜1000m</button>
+        <button class="book-tab" type="button" data-tab="special" aria-pressed="false">特別</button>
+      </div>
+      <div id="encyclopediaGrid" class="book-grid" aria-live="polite"></div>
+      <button id="bookBackButton" type="button">タイトルに戻る</button>
+    </section>
+
+    <section id="gameOverScreen" class="overlay hidden">
+      <div class="title-mark">🌊</div>
+      <h2>ゲームオーバー</h2>
+      <p id="resultText">深度 0m</p>
+      <button id="restartButton" type="button">もう一度</button>
+      <button id="titleButton" type="button">タイトルに戻る</button>
+    </section>
+
+    <nav class="controls" aria-label="操作">
+      <button id="leftButton" type="button" aria-label="左へ">‹</button>
+      <button id="rightButton" type="button" aria-label="右へ">›</button>
+    </nav>
+
+    <div id="discoveryToast" class="discovery-toast hidden" aria-live="polite"></div>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
