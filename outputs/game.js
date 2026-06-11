@@ -9,6 +9,9 @@ const encyclopediaScreen = document.getElementById("encyclopediaScreen");
 const encyclopediaGrid = document.getElementById("encyclopediaGrid");
 const gameOverScreen = document.getElementById("gameOverScreen");
 const discoveryToast = document.getElementById("discoveryToast");
+const discoveryModal = document.getElementById("discoveryModal");
+const discoveryModalText = document.getElementById("discoveryModalText");
+const discoveryModalIcon = document.getElementById("discoveryModalIcon");
 const resultText = document.getElementById("resultText");
 const startButton = document.getElementById("startButton");
 const encyclopediaButton = document.getElementById("encyclopediaButton");
@@ -17,6 +20,7 @@ const restartButton = document.getElementById("restartButton");
 const titleButton = document.getElementById("titleButton");
 const homeButton = document.getElementById("homeButton");
 const pauseButton = document.getElementById("pauseButton");
+const discoveryCloseButton = document.getElementById("discoveryCloseButton");
 const leftButton = document.getElementById("leftButton");
 const rightButton = document.getElementById("rightButton");
 const mofuButtons = document.querySelectorAll(".mofu-option");
@@ -510,6 +514,13 @@ function showDiscoveryToast(creature) {
   game.toastTimer = setTimeout(() => {
     discoveryToast.classList.add("hidden");
   }, 2600);
+
+  if (game.state === "playing") {
+    game.state = "discovery";
+    discoveryModalText.textContent = `${creature.name}を発見しました`;
+    discoveryModalIcon.textContent = creature.icon;
+    discoveryModal.classList.remove("hidden");
+  }
 }
 
 function updateBubbleLayers() {
@@ -1047,6 +1058,8 @@ function endGame(reason = "fall") {
 
 function returnToTitle() {
   saveProgress();
+  discoveryModal.classList.add("hidden");
+  discoveryToast.classList.add("hidden");
   showTitleScreen();
 }
 
@@ -1058,6 +1071,15 @@ function togglePause() {
     game.state = "playing";
     game.lastTime = performance.now();
     pauseButton.textContent = "II";
+  }
+}
+
+function closeDiscoveryModal() {
+  discoveryModal.classList.add("hidden");
+  discoveryToast.classList.add("hidden");
+  if (game.state === "discovery") {
+    game.state = "playing";
+    game.lastTime = performance.now();
   }
 }
 
@@ -1095,6 +1117,7 @@ restartButton.addEventListener("click", resetGame);
 titleButton.addEventListener("click", returnToTitle);
 homeButton.addEventListener("click", returnToTitle);
 pauseButton.addEventListener("click", togglePause);
+discoveryCloseButton.addEventListener("click", closeDiscoveryModal);
 for (const button of mofuButtons) {
   button.addEventListener("click", () => selectMofu(button.dataset.mofu));
 }

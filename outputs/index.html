@@ -43,7 +43,7 @@
           </button>
           <button class="mofu-option" id="beigeMofuButton" type="button" data-mofu="beige" aria-pressed="false">
             <img src="../image/mof_beige.png" alt="">
-            <span>beige</span>
+            <span>ベージュ</span>
           </button>
         </div>
       </div>
@@ -77,6 +77,12 @@
     </nav>
 
     <div id="discoveryToast" class="discovery-toast hidden" aria-live="polite"></div>
+
+    <section id="discoveryModal" class="discovery-modal hidden" aria-live="polite">
+      <button id="discoveryCloseButton" class="discovery-close" type="button" aria-label="閉じる">×</button>
+      <p id="discoveryModalText">新しい生き物を発見しました</p>
+      <div id="discoveryModalIcon" class="discovery-modal-icon">？</div>
+    </section>
   </main>
 
   <script src="game.js"></script>
