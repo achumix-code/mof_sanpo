@@ -110,7 +110,8 @@ const game = {
   lastTime: 0,
   platforms: [],
   particles: [],
-  fish: []
+  fish: [],
+  sightings: []
 };
 
 const player = {
@@ -177,6 +178,7 @@ function discoverCreature(creature) {
   save.discovered.push(creature.id);
   saveProgress();
   renderEncyclopedia();
+  addCreatureSighting(creature);
   showDiscoveryToast(creature);
   return true;
 }
@@ -276,6 +278,7 @@ function resetGame() {
   game.platforms = [];
   game.particles = [];
   game.fish = [];
+  game.sightings = [];
   game.state = "tutorial";
   game.lastTime = performance.now();
 
@@ -475,6 +478,7 @@ function update(delta) {
   updatePlatforms(seconds);
   updateParticles(seconds);
   updateFish(seconds);
+  updateSightings(seconds);
   collectPearls();
   updateDiscovery();
   updateHud();
@@ -708,6 +712,32 @@ function updateFish(seconds) {
   }
 }
 
+function addCreatureSighting(creature) {
+  game.sightings.push({
+    creature,
+    x: game.width * (0.24 + Math.random() * 0.52),
+    y: player.y + game.height * (0.12 + Math.random() * 0.18),
+    phase: Math.random() * Math.PI * 2,
+    life: 520
+  });
+
+  if (game.sightings.length > 4) {
+    game.sightings.shift();
+  }
+}
+
+function updateSightings(seconds) {
+  for (const sighting of game.sightings) {
+    sighting.phase += 0.025 * seconds;
+    sighting.life -= seconds;
+  }
+
+  game.sightings = game.sightings.filter((sighting) => {
+    const screenY = sighting.y - game.cameraY;
+    return sighting.life > 0 && screenY > -90 && screenY < game.height + 120;
+  });
+}
+
 function updateFishPopulation() {
   const zone = getFishZone();
   if (zone !== game.fishZone) {
@@ -798,6 +828,7 @@ function popBubbles(x, y) {
 function draw() {
   drawBackground();
   drawFish();
+  drawSightings();
   drawParticles();
   drawRyuguLight();
 
@@ -846,6 +877,34 @@ function drawFish() {
     ctx.beginPath();
     ctx.ellipse(0, 0, fish.size * 1.35, fish.size * 0.72, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawSightings() {
+  ctx.save();
+  for (const sighting of game.sightings) {
+    const screenY = sighting.y - game.cameraY + Math.sin(sighting.phase) * 6;
+    const alpha = Math.min(0.82, Math.max(0, sighting.life / 90));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(sighting.x + Math.sin(sighting.phase * 0.7) * 10, screenY);
+
+    ctx.fillStyle = "rgba(219, 248, 255, 0.16)";
+    ctx.strokeStyle = "rgba(219, 248, 255, 0.34)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 27, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = "28px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(sighting.creature.icon, 0, 1);
     ctx.restore();
   }
   ctx.restore();
