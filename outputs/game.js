@@ -12,6 +12,7 @@ const discoveryToast = document.getElementById("discoveryToast");
 const discoveryModal = document.getElementById("discoveryModal");
 const discoveryModalText = document.getElementById("discoveryModalText");
 const discoveryModalIcon = document.getElementById("discoveryModalIcon");
+const tutorialModal = document.getElementById("tutorialModal");
 const resultText = document.getElementById("resultText");
 const startButton = document.getElementById("startButton");
 const encyclopediaButton = document.getElementById("encyclopediaButton");
@@ -21,6 +22,7 @@ const titleButton = document.getElementById("titleButton");
 const homeButton = document.getElementById("homeButton");
 const pauseButton = document.getElementById("pauseButton");
 const discoveryCloseButton = document.getElementById("discoveryCloseButton");
+const tutorialCloseButton = document.getElementById("tutorialCloseButton");
 const leftButton = document.getElementById("leftButton");
 const rightButton = document.getElementById("rightButton");
 const mofuButtons = document.querySelectorAll(".mofu-option");
@@ -30,6 +32,8 @@ const PX_PER_METER = 72;
 const BUBBLE_LIMIT_METERS = 10;
 const MAX_BUBBLE_LAYERS = 5;
 const DISCOVERY_CHECK_METERS = 18;
+const FISH_MAX_COUNT = 8;
+const FISH_BASE_ALPHA = 0.32;
 const assets = {
   gameBackground: loadImage("../image/gamehaikei_migihidari.png"),
   jellyfish: loadImage("../image/kurage.png"),
@@ -97,13 +101,16 @@ const game = {
   bubbleBroken: false,
   bubbleLayers: 1,
   nextSpecialDepth: 50,
+  specialTypeIndex: 0,
   nextDiscoveryDepth: 0,
   bookTab: "shallow",
   toastTimer: 0,
+  fishZone: "",
   cameraY: 0,
   lastTime: 0,
   platforms: [],
-  particles: []
+  particles: [],
+  fish: []
 };
 
 const player = {
@@ -198,6 +205,8 @@ function showTitleScreen() {
   game.bubbleBroken = false;
   gameOverScreen.classList.add("hidden");
   encyclopediaScreen.classList.add("hidden");
+  discoveryModal.classList.add("hidden");
+  tutorialModal.classList.add("hidden");
   startScreen.classList.remove("hidden");
   pauseButton.textContent = "II";
   keys.left = false;
@@ -260,11 +269,14 @@ function resetGame() {
   game.bubbleBroken = false;
   game.bubbleLayers = 1;
   game.nextSpecialDepth = 50;
+  game.specialTypeIndex = 0;
   game.nextDiscoveryDepth = 8;
+  game.fishZone = "";
   game.cameraY = 0;
   game.platforms = [];
   game.particles = [];
-  game.state = "playing";
+  game.fish = [];
+  game.state = "tutorial";
   game.lastTime = performance.now();
 
   for (let i = 0; i < 5; i += 1) {
@@ -274,9 +286,11 @@ function resetGame() {
   for (let i = 0; i < 42; i += 1) {
     game.particles.push(makeBubble(Math.random() * game.width, Math.random() * game.height));
   }
+  updateFishPopulation();
 
   startScreen.classList.add("hidden");
   gameOverScreen.classList.add("hidden");
+  tutorialModal.classList.remove("hidden");
   pauseButton.textContent = "II";
   updateHud();
 }
@@ -368,15 +382,22 @@ function assignPlatformBehavior(platform) {
     return;
   }
 
-  const roll = Math.random();
-  if (roll < 0.34) {
-    platform.behavior = "horizontal";
-    platform.moveRange = 26 + Math.random() * 24;
-  } else if (roll < 0.68) {
-    platform.behavior = "vertical";
-    platform.moveRange = 18 + Math.random() * 16;
-  } else {
-    platform.behavior = "blink";
+  const types = ["horizontal", "vertical", "blink"];
+  const type = depth <= 500
+    ? types[game.specialTypeIndex % types.length]
+    : types[Math.floor(Math.random() * types.length)];
+  game.specialTypeIndex += 1;
+  platform.behavior = type;
+
+  if (type === "horizontal") {
+    platform.moveRange = 48 + Math.random() * 24;
+    const minX = 18 + platform.moveRange;
+    const maxX = game.width - platform.width - 18 - platform.moveRange;
+    platform.x = maxX > minX
+      ? minX + Math.random() * (maxX - minX)
+      : Math.max(18, Math.min(game.width - platform.width - 18, game.width / 2 - platform.width / 2));
+  } else if (type === "vertical") {
+    platform.moveRange = 28 + Math.random() * 18;
   }
 }
 
@@ -453,6 +474,7 @@ function update(delta) {
 
   updatePlatforms(seconds);
   updateParticles(seconds);
+  updateFish(seconds);
   collectPearls();
   updateDiscovery();
   updateHud();
@@ -671,6 +693,91 @@ function updateParticles(seconds) {
   }
 }
 
+function updateFish(seconds) {
+  updateFishPopulation();
+
+  for (const fish of game.fish) {
+    fish.x += fish.direction * fish.speed * seconds;
+    fish.wobble += fish.wobbleSpeed * seconds;
+
+    if (fish.direction > 0 && fish.x > game.width + fish.size * 5) {
+      resetFish(fish, -fish.size * 5, 1);
+    } else if (fish.direction < 0 && fish.x < -fish.size * 5) {
+      resetFish(fish, game.width + fish.size * 5, -1);
+    }
+  }
+}
+
+function updateFishPopulation() {
+  const zone = getFishZone();
+  if (zone !== game.fishZone) {
+    game.fishZone = zone;
+    game.fish = [];
+  }
+
+  const target = getFishTargetCount();
+  while (game.fish.length < target && game.fish.length < FISH_MAX_COUNT) {
+    game.fish.push(createFish());
+  }
+
+  if (game.fish.length > target) {
+    game.fish.length = target;
+  }
+}
+
+function getFishZone() {
+  if (game.depth >= 900) return "gold";
+  if (game.depth > 500) return "deep";
+  if (game.depth > 300) return "middle";
+  return "shallow";
+}
+
+function getFishTargetCount() {
+  if (game.depth >= 900) return 4;
+  if (game.depth > 500) return 1;
+  if (game.depth > 300) return 3;
+  return 6;
+}
+
+function createFish() {
+  const direction = Math.random() < 0.5 ? 1 : -1;
+  const x = direction > 0 ? Math.random() * game.width : game.width - Math.random() * game.width;
+  return resetFish({}, x, direction);
+}
+
+function resetFish(fish, x, direction) {
+  const style = getFishStyle();
+  fish.x = x;
+  fish.y = game.height * (0.18 + Math.random() * 0.58);
+  fish.direction = direction;
+  fish.size = style.size * (0.82 + Math.random() * 0.36);
+  fish.speed = style.speed * (0.75 + Math.random() * 0.5);
+  fish.alpha = style.alpha;
+  fish.color = style.color;
+  fish.tailColor = style.tailColor;
+  fish.glow = style.glow;
+  fish.wobble = Math.random() * Math.PI * 2;
+  fish.wobbleSpeed = 0.018 + Math.random() * 0.018;
+  return fish;
+}
+
+function getFishStyle() {
+  if (game.depth >= 900) {
+    return { color: "#f7d878", tailColor: "#fff1a8", size: 7, speed: 0.42, alpha: 0.34, glow: true };
+  }
+  if (game.depth > 500) {
+    return { color: "#9cf2ff", tailColor: "#d7fbff", size: 8, speed: 0.34, alpha: 0.24, glow: true };
+  }
+  if (game.depth > 300) {
+    return { color: "#b5f7ff", tailColor: "#e6ffff", size: 6, speed: 0.38, alpha: 0.24, glow: true };
+  }
+
+  if (Math.random() < 0.45) {
+    return { color: "#ffb46f", tailColor: "#ffd4a3", size: 7, speed: 0.46, alpha: FISH_BASE_ALPHA, glow: false };
+  }
+  return { color: "#69d5ff", tailColor: "#b8efff", size: 6, speed: 0.44, alpha: FISH_BASE_ALPHA, glow: false };
+}
+
 function popBubbles(x, y) {
   for (let i = 0; i < 5; i += 1) {
     game.particles.push({
@@ -690,6 +797,7 @@ function popBubbles(x, y) {
 
 function draw() {
   drawBackground();
+  drawFish();
   drawParticles();
   drawRyuguLight();
 
@@ -706,6 +814,41 @@ function draw() {
   if (game.state === "paused") {
     drawPauseTint();
   }
+}
+
+function drawFish() {
+  ctx.save();
+  for (const fish of game.fish) {
+    const y = fish.y + Math.sin(fish.wobble) * 3;
+    ctx.save();
+    ctx.translate(fish.x, y);
+    ctx.scale(fish.direction, 1);
+    ctx.globalAlpha = fish.alpha;
+
+    if (fish.glow) {
+      ctx.fillStyle = fish.color;
+      ctx.globalAlpha = fish.alpha * 0.3;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, fish.size * 2.5, fish.size * 1.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = fish.alpha;
+    }
+
+    ctx.fillStyle = fish.tailColor;
+    ctx.beginPath();
+    ctx.moveTo(-fish.size * 1.1, 0);
+    ctx.lineTo(-fish.size * 2, -fish.size * 0.65);
+    ctx.lineTo(-fish.size * 2, fish.size * 0.65);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = fish.color;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, fish.size * 1.35, fish.size * 0.72, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 function drawBackground() {
@@ -753,7 +896,7 @@ function drawGameBackgroundImage() {
   const y = Math.min(0, (game.height - drawHeight) / 2 + driftY);
 
   ctx.save();
-  ctx.globalAlpha = 0.68;
+  ctx.globalAlpha = game.depth <= 100 ? 0.46 : 0.68;
   ctx.drawImage(image, x, y, drawWidth, drawHeight);
   ctx.restore();
 }
@@ -767,6 +910,9 @@ function getDepthColors() {
   }
   if (game.depth >= 300) {
     return { top: "#0b2a48", mid: "#071e37", bottom: "#031120", haze: "rgba(113, 204, 224, 0.052)" };
+  }
+  if (game.depth <= 100) {
+    return { top: "#61d9e8", mid: "#1caac6", bottom: "#08769e", haze: "rgba(230, 255, 255, 0.12)" };
   }
   return { top: "#123b54", mid: "#082338", bottom: "#020d19", haze: "rgba(155, 225, 239, 0.05)" };
 }
@@ -830,7 +976,7 @@ function drawJellyfish(platform) {
   ctx.scale(1, 1 - bounce.squash);
 
   if (platform.behavior !== "normal") {
-    ctx.strokeStyle = platform.behavior === "blink" ? "rgba(255, 244, 173, 0.48)" : "rgba(178, 244, 255, 0.42)";
+    ctx.strokeStyle = getSpecialRingColor(platform.behavior);
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(0, -2, platform.width * 0.6, platform.height * 0.9, 0, 0, Math.PI * 2);
@@ -868,6 +1014,12 @@ function drawJellyfish(platform) {
   }
 
   ctx.restore();
+}
+
+function getSpecialRingColor(behavior) {
+  if (behavior === "horizontal") return "rgba(140, 235, 255, 0.54)";
+  if (behavior === "vertical") return "rgba(176, 255, 207, 0.5)";
+  return "rgba(255, 244, 173, 0.52)";
 }
 
 function getPlatformBounce(platform) {
@@ -1083,6 +1235,14 @@ function closeDiscoveryModal() {
   }
 }
 
+function closeTutorialModal() {
+  tutorialModal.classList.add("hidden");
+  if (game.state === "tutorial") {
+    game.state = "playing";
+    game.lastTime = performance.now();
+  }
+}
+
 function loop(time) {
   const delta = time - game.lastTime;
   game.lastTime = time;
@@ -1118,6 +1278,7 @@ titleButton.addEventListener("click", returnToTitle);
 homeButton.addEventListener("click", returnToTitle);
 pauseButton.addEventListener("click", togglePause);
 discoveryCloseButton.addEventListener("click", closeDiscoveryModal);
+tutorialCloseButton.addEventListener("click", closeTutorialModal);
 for (const button of mofuButtons) {
   button.addEventListener("click", () => selectMofu(button.dataset.mofu));
 }
